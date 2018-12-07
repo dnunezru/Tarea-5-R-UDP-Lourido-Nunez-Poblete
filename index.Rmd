@@ -131,7 +131,7 @@ Vbeta500=var(betas_df[,7])
 Vbeta1000=var(betas_df[,8])
 ```
 
-Para ver si existe sesgo, debemos calcular los betas del modelo poblacional.
+Para ver si existe sesgo, debemos calcular el beta del modelo poblacional.
 
 ```{r}
 betas1 = matrix(NA, nrow = reps, ncol = 12)
