@@ -3,16 +3,243 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
-
-```{r}
-plot(cars)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+library(pdfetch)
+library(tidyquant)
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+# Pregunta 2 (*50 puntos*)
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+1. Descargue el precio de las acciones de Microsoft (“MSFT”) y Apple (“AAPL”) desde Enero
+del 2000 hasta Agosto del 2018 con periodicidad mensual.
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+Apple = pdfetch_YAHOO("AAPL", fields = "close", from = as.Date("2000-01-01"),
+                      to = as.Date("2018-08-31"), interval = "1m")
+Microsoft = pdfetch_YAHOO("MSFT", fields ="close", from = as.Date("2000-01-01"), 
+                          to = as.Date("2018-08-31"), interval = "1m")
+```
+
+2. Utilizando los datos de 2.1, construya una función que permita:
+a. Calcular los retornos.
+b. Graficar los retornos y retornos acumulados.
+c. Testear normalidad utilizando Jarque-Bera (JB)
+
+```{r}
+funcion_finanzas = function(x,return,graph,norm) {
+  if (return=="yes") {
+    # Retornos
+    x$Retornos<- periodReturn(x, type="log")
+    print(x$Retornos)
+  }
+  if (return=="no") {
+    # Retornos Acumulados
+    x$Retornos <- periodReturn(x, type="arithmetic")
+    print(x$Retornos)
+  }
+  if (graph=="tipo1") {
+    #Gráfico Retornos
+    plot.ts(x$Retornos, main = "Retornos", col= "blue")
+  }
+  if (graph=="tipo2") {
+    #Gráfico Retornos Acumulados
+    x$Retornos_acum <- cumsum(x$Retornos)
+    plot.ts(x$Retornos_acum, main = "Retornos Acumulados", col= "red")
+  }
+  if (norm=="yes") {
+    Skew <- (sum((x - mean(x))^3)/length(x))/(sum((x - mean(x))^2)/length(x))^(3/2)
+    Kur <- length(x) * sum((x - mean(x))^4)/(sum((x - mean(x))^2)^2)
+    JB <- (length(x)/6) * (Skew^2 + 0.25 * ((Kur - 3)^2))
+    pval <- 1 - pchisq(JB, df = 2)
+    if (pval<0.05) {
+      print("Se rechaza H0 de distribución normal")
+      print(paste(JB, Skew, Kur))
+    }
+    else {
+      print("No se rechaza H0 de distribución normal")
+    }
+  }
+}
+
+funcion_finanzas(Apple,return = "yes", graph = "tipo1",norm="yes")
+```
+
+# Pregunta 3 (*30 puntos*)
+
+a. Calcule E( ˆ 1) y var( ˆ 1) para muestras de tamaños 50, 100, 500, 1000. ¿Existe sesgo?, ¿Desaparece el sesgo a medida que el tamaño de la muestra aumenta?
+
+En un principio generamos los parámetros.
+
+```{r}
+set.seed(123)
+reps = 10000
+
+betas = matrix(NA, nrow = reps, ncol = 8)
+
+beta0 = 2
+beta1 = 2.5
+beta2 = 1
+
+n = c(50, 100, 500, 1000)
+
+for (j in 1:length(n)) {
+  X1=rnorm(n[j],20,1)
+  X2=0.8*X1
+  for (i in 1:reps) {
+    u= beta2*X2 + rnorm(n[j],0,1)
+    Y = beta0 + beta1*X1 + u 
+    model = lm(Y~X1)  
+    betas[i,j] = model$coef[1]
+    betas[i,j+4] = model$coef[2]
+  }
+}
+
+betas_df <- data.frame(betas)
+
+Ebeta50=mean(betas_df[,5])
+Ebeta100=mean(betas_df[,6])
+Ebeta500=mean(betas_df[,7])
+Ebeta1000=mean(betas_df[,8])
+
+Vbeta50=var(betas_df[,5])
+Vbeta100=var(betas_df[,6])
+Vbeta500=var(betas_df[,7])
+Vbeta1000=var(betas_df[,8])
+```
+
+Para ver si existe sesgo, debemos calcular los betas del modelo poblacional.
+
+```{r}
+betas1 = matrix(NA, nrow = reps, ncol = 12)
+
+for (j in 1:length(n)) {
+  X1=rnorm(n[j],20,1)
+  X2=runif(n[j],0,1)
+  for (i in 1:reps) {
+    u= rnorm(n[j],0,1)
+    Y = beta0 + beta1*X1 + beta2*X2 + u 
+    model = lm(Y~X1+X2)  
+    betas1[i,j] = model$coef[1]
+    betas1[i,j+4] = model$coef[2]
+    betas1[i,j+8] = model$coef[3]
+  }
+}
+
+betas_df1 <- data.frame(betas1)
+
+Ebeta50pob=mean(betas_df1[,5])
+Ebeta100pob=mean(betas_df1[,6])
+Ebeta500pob=mean(betas_df1[,7])
+Ebeta1000pob=mean(betas_df1[,8])
+Ebetapob = mean(Ebeta50,Ebeta100,Ebeta500,Ebeta1000)
+
+sesgo50 = Ebeta50 - Ebetapob
+sesgo100 = Ebeta100 - Ebetapob
+sesgo500 = Ebeta500 - Ebetapob
+sesgo1000 = Ebeta1000 - Ebetapob
+```
+
+Entonces los sesgos para el parametro beta1 son:
+
+```{r}
+sesgosbeta1 = data.frame(sesgo50, sesgo100, sesgo500, sesgo1000)
+knitr::kable(sesgosbeta1)
+```
+
+Los parámetros estimados son sesgados, y no existe evidencia de que a un mayor tamaño de muestra disminuya el sesgo. La solución a omisión de variables relevantes es incluirlas en la regresión.
+
+b. Grafique la distribución de ˆ 1 para tamaños de muestra n = 50, 100, 500, 1000
+
+```{r}
+g11 <- ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,5], y=..density..), col="black", bins = 30) +
+  stat_function(fun=dnorm, args=list(mean=mean(betas_df[,5]), sd=sd(betas_df[,5])), 
+                geom="line", colour="red", size=1) +
+  ylab("Densidad") +   ggtitle("n=50") + xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+g21 <- ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,6], y=..density..), col="black", bins = 30) +
+  stat_function(fun=dnorm, args=list(mean=mean(betas_df[,6]), sd=sd(betas_df[,6])), 
+                geom="line", colour="red", size=1) +
+  ylab("Densidad") +   ggtitle("n=100") + xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+g31 <- ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,7], y=..density..), col="black", bins = 30) +
+  stat_function(fun=dnorm, args=list(mean=mean(betas_df[,7]), sd=sd(betas_df[,7])), 
+                geom="line", colour="red", size=1) +
+  ylab("Densidad") +   ggtitle("n=500") + xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+g41 <- ggplot(betas_df) + 
+  geom_histogram(aes(betas_df[,8], y=..density..), col="black", bins = 30) +
+  stat_function(fun=dnorm, args=list(mean=mean(betas_df[,8]), sd=sd(betas_df[,8])), 
+                geom="line", colour="red", size=1) +
+  ylab("Densidad") +   ggtitle("n=1000") + xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+grid.arrange(g11, g21, g31, g41, nrow=2, ncol=2)
+```
+
+
+c. Si x2  U[0, 1], ¿Cómo cambian los resultados que obtuviste en (a) y (b)?
+
+```{r}
+betas2 = matrix(NA, nrow = reps, ncol = 8)
+
+for (j in 1:length(n)) {
+  X1=rnorm(n[j],20,1)
+  X2=runif(n[j],0,1)
+  for (i in 1:reps) {
+    u= X2 + rnorm(n[j],0,1)
+    Y = beta0 + beta1*X1 + u 
+    model = lm(Y~X1)  
+    betas2[i,j] = model$coef[1]
+    betas2[i,j+4] = model$coef[2]
+  }
+}
+
+betas_df2 <- data.frame(betas2)
+```
+
+A continuación graficamos para ver los resultados. 
+
+```{r}
+h11 <- ggplot(betas_df2) + 
+  geom_histogram(aes(betas_df2[,5], y=..density..), col="black", bins = 30) +
+  stat_function(fun=dnorm, args=list(mean=mean(betas_df2[,5]), sd=sd(betas_df2[,5])), 
+                geom="line", colour="red", size=1) +
+  ylab("Densidad") +   ggtitle("n=50") + xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+h21 <- ggplot(betas_df2) + 
+  geom_histogram(aes(betas_df2[,6], y=..density..), col="black", bins = 30) +
+  stat_function(fun=dnorm, args=list(mean=mean(betas_df2[,6]), sd=sd(betas_df2[,6])), 
+                geom="line", colour="red", size=1) +
+  ylab("Densidad") +   ggtitle("n=100") + xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+h31 <- ggplot(betas_df2) + 
+  geom_histogram(aes(betas_df2[,7], y=..density..), col="black", bins = 30) +
+  stat_function(fun=dnorm, args=list(mean=mean(betas_df2[,7]), sd=sd(betas_df2[,7])), 
+                geom="line", colour="red", size=1) +
+  ylab("Densidad") +   ggtitle("n=500") + xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+h41 <- ggplot(betas_df2) + 
+  geom_histogram(aes(betas_df2[,8], y=..density..), col="black", bins = 30) +
+  stat_function(fun=dnorm, args=list(mean=mean(betas_df2[,8]), sd=sd(betas_df2[,8])), 
+                geom="line", colour="red", size=1) +
+  ylab("Densidad") +   ggtitle("n=1000") + xlab(expression(hat(beta)[1])) +
+  theme_bw()
+
+grid.arrange(h11, h21, h31, h41, nrow=2, ncol=2)
+```
+
+
