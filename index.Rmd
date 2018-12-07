@@ -1,7 +1,26 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Tarea 5-R-UDP Lourido-Nuñez-Poblete"
+output:
+  html_document:
+    df_print: paged
 ---
+---
+\begin{center}
+      %\vspace{1cm}
+			\includegraphics[width=3cm]{logo.png}\\
+			\LARGE{\textbf{R para Economía y Negocios}}\\
+			\textsc{Tarea 5}\\
+			\smallskip
+			\vspace{5pt}
+			\small{ \noindent \textsc{\textbf{Nombres}: \textit{Felipe Lourido - Daniel Núñez - Rodrigo Poblete}}}
+			\vspace{5pt}
+			\\
+			\small{ \noindent \textsc{\textbf{Profesor}: \textit{Víctor Macías E.}}}
+			\\
+			\small{ \noindent \textsc{\textbf{Ayudante}: \textit{Gabriel Cabrera G.}}}
+			\\
+			\textsc{\textit{`r format(Sys.time(), '%d %B %Y')`}}
+\end{center}
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
